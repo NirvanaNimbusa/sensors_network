@@ -40,10 +40,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#define TXBUFFERSIZE 1
-#define RXBUFFERSIZE TXBUFFERSIZE
-#define RUNNING_BLINK_INTERVAL 500 //ms 状态指示灯状态变化间隔时间
-#define RX_INTERVAL 2 //ms 串口数据接收间隔时间（超出此时间，一次连续数据接收过程结束）
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -56,22 +52,32 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define TXBUFFERSIZE 1
+#define RXBUFFERSIZE TXBUFFERSIZE
+#define RUNNING_BLINK_INTERVAL 500 //ms 状态指示灯状态变化间隔时间
+#define RX_INTERVAL 2 //ms 串口数据接收间隔时间（超出此时间，一次连续数据接收过程结束）
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#ifdef __GNUC__
+/* With GCC, small printf (option LD Linker->Libraries->Small printf
+   set to 'Yes') calls __io_putchar() */
+#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif /* __GNUC__ */
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
+/* USER CODE BEGIN PV */
 uint32_t lasttick, curtick;
 uint32_t lastptime = 0;//上一次巡检时间
 CircleQue_TypeDef qbuf1, qbuf2;
 PtrQue_TypeDef sens_que;
 PtrQue_TypeDef switch_que;
-UART_HandleTypeDef huart1;
-UART_HandleTypeDef huart2;
 __IO ITStatus Uart1TxCplt = RESET;
 __IO ITStatus Uart1RxCplt = RESET;
 __IO ITStatus Uart2TxCplt = RESET;
@@ -86,24 +92,15 @@ uint8_t aTx2Buffer[TXBUFFERSIZE];
 /* Buffer used for reception */
 uint8_t aRx2Buffer[RXBUFFERSIZE];
 uint32_t rx1_lastbyte_time = 0;//串口收到字符后发送等待时间（等接收缓冲区接收一点数据再发送，避免485收发状态频繁变化，485转换器芯片动作滞后）
-/* USER CODE BEGIN PV */
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
-#ifdef __GNUC__
-/* With GCC, small printf (option LD Linker->Libraries->Small printf
-   set to 'Yes') calls __io_putchar() */
-#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
-#else
-#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
-#endif /* __GNUC__ */
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void Analy_Cmd(PtrQue_TypeDef * swq, char c);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -133,7 +130,6 @@ int main(void)
 
   /* Configure the system clock */
   SystemClock_Config();
-	lasttick = HAL_GetTick();
   /* USER CODE BEGIN SysInit */
 
   /* USER CODE END SysInit */
@@ -142,12 +138,13 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
+  /* USER CODE BEGIN 2 */
+	lasttick = HAL_GetTick();
 	RS485_RX_EN();
 	Que_Init(&qbuf1);
 	Que_Init(&qbuf2);
 	Sensors_Que_Init(&sens_que);
 	SW_Que_Init(&switch_que);
-  /* USER CODE BEGIN 2 */
 	printf("Senor Networks Controller Ready!\r\n");
 	if(HAL_UART_Receive_IT(&huart1, (uint8_t*)aRx1Buffer, 1)!= HAL_OK)
   {
@@ -164,14 +161,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-		if (Que_Query(&qbuf1, &b))//检查缓冲区队列是否有数据，有则回送
+		if (Que_Out(&qbuf1, &b))//检查缓冲区队列是否有数据，有则进行命令解析
 		{
-			aTx1Buffer[0] = b;
-			if(HAL_UART_Transmit_IT(&huart1, (uint8_t*)aTx1Buffer, 1) == HAL_OK)
-			{
-				Que_Out(&qbuf1, &b);//发送任务下达成功，从队列里删除队头，避免下次重复发送
-			}
+			Analy_Cmd(&switch_que, b);
 		}
 		SW_Cmd_Exec(&switch_que);//如果收到命令，控制开关动作
 		if ((HAL_GetTick() - lastptime + 0x100000000) % 0x100000000 >= POLLING_PERIOD * 1000)
@@ -192,6 +184,7 @@ int main(void)
 			LED1_TOGGLE();
 			lasttick = curtick;
 		}
+    /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -437,6 +430,16 @@ PUTCHAR_PROTOTYPE
   HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xFFFF);
 
   return ch;
+}
+/**
+  * @brief  Analysis command received from UART and refresh switch handle que when received new char c.
+  * @param  swq: pointer of switch handle que
+  *         c:   new char received from UART
+  * @note   
+  * @retval None
+  */
+void Analy_Cmd(PtrQue_TypeDef * swq, char c)
+{
 }
 /* USER CODE END 4 */
 
