@@ -49,6 +49,11 @@ extern "C" {
 
 #define DEBUG_ON 0 //测试代码编译开关
 #define OLD_BOARD 0 //新旧版本的开发板编译选项
+#if (DEBUG_ON)
+#define printf_dbg(...) do { printf(__VA_ARGS__); } while (0)
+#else
+#define printf_dbg(...)
+#endif
 #if (OLD_BOARD == 1)
 #define RS485_RX_EN() HAL_GPIO_WritePin(GPIOG, GPIO_PIN_9, GPIO_PIN_RESET)
 #define RS485_TX_EN() HAL_GPIO_WritePin(GPIOG, GPIO_PIN_9, GPIO_PIN_SET)

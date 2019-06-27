@@ -1,6 +1,21 @@
 #include "main.h"
+typedef enum {CMD_READY, CMD_RX} Cmd_State_t;
 void SW_Que_Init(PtrQue_TypeDef * swq)
 {
+	SW_Handle_t * sh;
+	int i;
+	for (i = 0; i < SW_NUM; i++) //初始化传感器队列，并完成传感器句柄部分初始化
+	{
+		sh = (SW_Handle_t *)malloc(sizeof(SW_Handle_t));
+		sh->action = ACT_STOP;
+		sh->command_new = FALSE;
+		sh->result = RES_OK;
+		sh->status = ACT_STOP;
+		sh->cmdbuf = malloc(SW_CMD_LEN);
+		sh->cmdsize = SW_CMD_LEN;
+		PtrQue_In(swq, (void *)sh);
+	}
+
 }
 BOOL_t SW_Cmd_Exec(PtrQue_TypeDef * swq)
 {
@@ -18,6 +33,61 @@ BOOL_t SW_Cmd_Exec(PtrQue_TypeDef * swq)
 		return FALSE;
 	SW_Control(sw);
 	return TRUE;
+}
+/**
+  * @brief  Analysis command received from UART and refresh switch handle que when received new char c.
+  * @param  swq: pointer of switch handle que
+  *         c:   new char received from UART
+  * @note   
+  * @retval None
+  */
+void SW_Cmd_Analysis(PtrQue_TypeDef * swq, char c)
+{
+	static char buf[5];
+	static uint8_t i = 0;
+	static Cmd_State_t s = CMD_READY;
+	uint8_t cmd_rx;
+	cmd_rx = 0;
+	switch (s)
+	{
+		case CMD_READY:
+			if (c == '@')
+			{
+				i = 0;
+				s = CMD_RX;
+			}
+			break;
+		case CMD_RX:
+			if (c == '@')
+			{
+				i = 0;
+				s = CMD_READY;
+			}
+			else if (c == '#')
+			{
+				if (i == 3) cmd_rx = 1;//received a command.
+				i = 0;
+				s = CMD_READY;
+			}
+			else if (i > 2)//overflow
+			{
+				i = 0;
+				s = CMD_READY;
+			}
+			else
+			{
+				buf[i] = c;
+				i++;
+			}
+			break;
+		default:
+			s = CMD_READY;
+	}
+	if (cmd_rx)
+	{
+		buf[3] = '\0';
+		printf("rx cmd: %s\r\n", buf);
+	}
 }
 
 void SW_Control(SW_Handle_t * sw)

@@ -2,11 +2,13 @@
 #define __COMMAND_H
 #define K_ON(port, pin) HAL_GPIO_WritePin(port, pin, GPIO_PIN_SET)
 #define K_OFF(port, pin) HAL_GPIO_WritePin(port, pin, GPIO_PIN_RESET)
+#define SW_NUM 5
+#define SW_CMD_LEN 3
 typedef enum
 {
-	ACT_OFF = 0,
+	ACT_STOP = 0,
 	ACT_ON,
-	ACT_STOP
+	ACT_OFF
 }SwActType_t;
 typedef enum
 {
@@ -18,8 +20,8 @@ typedef enum
 }CommandType_t;
 typedef enum
 {
-	RES_OK = 0,
-	RES_FAILED,
+	RES_FAILED = 0,
+	RES_OK,
 	RES_KEEP
 }CommandResType_t;
 typedef struct
@@ -38,6 +40,8 @@ typedef struct
 }SW_Handle_t;//开关句柄
 /*执行控制器命令*/
 BOOL_t SW_Cmd_Exec(PtrQue_TypeDef * swq);
+/*解析串口命令，并刷新开关队列*/
+void SW_Cmd_Analysis(PtrQue_TypeDef * swq, char c);
 /*命令队列初始化*/
 void SW_Que_Init(PtrQue_TypeDef * swq);
 /*控制开关动作*/

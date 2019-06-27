@@ -144,16 +144,16 @@ int main(void)
 	Que_Init(&qbuf1);
 	Que_Init(&qbuf2);
 	Sensors_Que_Init(&sens_que);
-	SW_Que_Init(&switch_que);
-	printf("Senor Networks Controller Ready!\r\n");
+//	SW_Que_Init(&switch_que);
+	printf_dbg("Senor Networks Controller Ready!\r\n");
 	if(HAL_UART_Receive_IT(&huart1, (uint8_t*)aRx1Buffer, 1)!= HAL_OK)
   {
     Error_Handler();
   }  
-	if(HAL_UART_Receive_IT(&huart2, (uint8_t*)aRx2Buffer, 1)!= HAL_OK)
-  {
-    Error_Handler();
-  }  
+//	if(HAL_UART_Receive_IT(&huart2, (uint8_t*)aRx2Buffer, 1)!= HAL_OK)
+//  {
+//    Error_Handler();
+//  }  
 
   /* USER CODE END 2 */
 
@@ -163,17 +163,17 @@ int main(void)
   {
 		if (Que_Out(&qbuf1, &b))//检查缓冲区队列是否有数据，有则进行命令解析
 		{
-			Analy_Cmd(&switch_que, b);
+			SW_Cmd_Analysis(&switch_que, b);
 		}
-		SW_Cmd_Exec(&switch_que);//如果收到命令，控制开关动作
+//		SW_Cmd_Exec(&switch_que);//如果收到命令，控制开关动作
 		if ((HAL_GetTick() - lastptime + 0x100000000) % 0x100000000 >= POLLING_PERIOD * 1000)
 		{
-			printf("polling start...\r\n");
+			printf_dbg("polling start...\r\n");
 			lastptime = HAL_GetTick();
 			LED0_ON();
 			Sensors_Polling(&sens_que);
 			LED0_OFF();
-			printf("polling end...\r\n");
+			printf_dbg("polling end...\r\n");
 #if (DEBUG_ON == 1)
 			Sensors_Que_Print(&sens_que);
 #endif
@@ -396,8 +396,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
   /* Set transmission flag: transfer complete */
 	if (UartHandle->Instance == USART1)
 	{
+		Uart1RxCplt = SET;
 		Que_In(&qbuf1, aRx1Buffer[0]);//入队
-		HAL_UART_Receive_IT(&huart1, (uint8_t*)aRx1Buffer, 1);
+		while (HAL_UART_Receive_IT(&huart1, (uint8_t*)aRx1Buffer, 1)!= HAL_OK);//下达接收任务必须成功，否则不能再收到后续数据
 	}
 	if (UartHandle->Instance == USART2)
 	{
@@ -430,16 +431,6 @@ PUTCHAR_PROTOTYPE
   HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xFFFF);
 
   return ch;
-}
-/**
-  * @brief  Analysis command received from UART and refresh switch handle que when received new char c.
-  * @param  swq: pointer of switch handle que
-  *         c:   new char received from UART
-  * @note   
-  * @retval None
-  */
-void Analy_Cmd(PtrQue_TypeDef * swq, char c)
-{
 }
 /* USER CODE END 4 */
 
